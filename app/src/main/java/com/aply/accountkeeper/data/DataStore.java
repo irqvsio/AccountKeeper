@@ -4,11 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.GregorianCalendar;
 
-/**
- * Created by aply_lai on 2015/11/1.
- */
 public abstract class DataStore {
     private static final String TAG = "DataStore";
 
@@ -36,11 +34,14 @@ public abstract class DataStore {
 
     private SharedPreferences mSharedPreferences;
     private ArrayList<Observer> mObservers;
+    private boolean mEnableDataChangeObserver;
     private boolean mIsClosed;
 
     protected DataStore(Context cxt) {
         mSharedPreferences = cxt.getSharedPreferences(PREF_TRANSACTION, Context.MODE_PRIVATE);
         mObservers = new ArrayList<Observer>();
+
+        mEnableDataChangeObserver = true;
     }
 
     public synchronized void setSyncTime(long time) {
@@ -72,19 +73,27 @@ public abstract class DataStore {
         mObservers.remove(observer);
     }
 
-    protected synchronized void onSharedPreferenceChanged(String key) {
+    protected synchronized void onChanged(String key) {
+        if (false == mEnableDataChangeObserver) {
+            return;
+        }
+
         for (Observer observer : mObservers) {
             observer.update(key);
         }
     }
 
+    public void setEnableDataChangeObserver(boolean enable) {
+        mEnableDataChangeObserver = enable;
+    }
+
     public abstract void insert(MyTransaction newTransaction);
 
-    public abstract void bucketInsert(ArrayList<MyTransaction> list);
+    public abstract void bucketInsert(Collection<MyTransaction> list);
 
     public abstract void update(MyTransaction updateTransaction);
 
-    public abstract void bucketUpdate(ArrayList<MyTransaction> list);
+    public abstract void bucketUpdate(Collection<MyTransaction> list);
 
     public abstract ArrayList<MyTransaction> query(String selection, String[] selectionArgs);
 

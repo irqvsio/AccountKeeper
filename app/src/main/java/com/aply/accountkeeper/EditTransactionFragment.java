@@ -14,9 +14,6 @@ import android.widget.Toast;
 import com.aply.accountkeeper.data.MyTransaction;
 
 
-/**
- * Created by APLY on 2015/11/1.
- */
 public class EditTransactionFragment extends DialogFragment {
     private static final String TAG = "EditTransactionFragment";
 

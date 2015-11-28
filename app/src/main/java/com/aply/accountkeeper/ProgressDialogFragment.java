@@ -5,13 +5,9 @@ import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.support.v4.app.DialogFragment;
 
-/**
- * Created by APLY on 2015/11/2.
- */
 public class ProgressDialogFragment extends DialogFragment {
     private static final String TAG = "ProgressDialogFragment";
 
-    // TODO maybe there is another good or managed tag name
     public static final String FRAGMENT_TAG = TAG;
 
     private boolean mIsDismissOnResume;

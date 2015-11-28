@@ -7,7 +7,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.util.Log;
 
+import com.aply.accountkeeper.Constants;
+
 import java.util.ArrayList;
+import java.util.Collection;
 
 /**
  * Local data provider implemented by SQLite to store all transaction data.
@@ -26,7 +29,7 @@ public class SQLiteDataStore extends DataStore {
         mSqlHelper.insert(newTransaction);
     }
 
-    public synchronized void bucketInsert(ArrayList<MyTransaction> list) {
+    public synchronized void bucketInsert(Collection<MyTransaction> list) {
         mSqlHelper.bucketInsert(list);
     }
 
@@ -34,7 +37,7 @@ public class SQLiteDataStore extends DataStore {
         mSqlHelper.update(updateTransaction);
     }
 
-    public synchronized void bucketUpdate(ArrayList<MyTransaction> list) {
+    public synchronized void bucketUpdate(Collection<MyTransaction> list) {
         mSqlHelper.bucketUpdate(list);
     }
 
@@ -111,13 +114,13 @@ public class SQLiteDataStore extends DataStore {
                     COL_NAME_DATE + "=?",
                     new String[]{key});
 
-            Log.d(TAG, "update : " + result + " key=" + key);
+            if (true == Constants.DEBUG) Log.d(TAG, "update : " + result + " key=" + key);
 
 
-            onSharedPreferenceChanged(key);
+            onChanged(key);
         }
 
-        public synchronized void bucketUpdate(ArrayList<MyTransaction> list) {
+        public synchronized void bucketUpdate(Collection<MyTransaction> list) {
             if (mIsClosed || null == list || 0 >= list.size()) {
                 return;
             }
@@ -139,16 +142,16 @@ public class SQLiteDataStore extends DataStore {
                             + " " + COL_NAME_SYNC + "='" + (mt.mIsSynced? 1:0) + "'"
                             + where + "'" + key +"'";
                     db.execSQL(sql);
-                    Log.d(TAG, "update : " + sql);
+                    if (true == Constants.DEBUG) Log.d(TAG, "update : " + sql);
                 }
-                Log.d(TAG, "update : ------");
+                if (true == Constants.DEBUG) Log.d(TAG, "update : ------");
                 db.setTransactionSuccessful();
             }
             finally {
                 db.endTransaction();
             }
 
-            onSharedPreferenceChanged(null);
+            onChanged(null);
         }
 
         public synchronized void insert(MyTransaction newTransaction) {
@@ -164,12 +167,12 @@ public class SQLiteDataStore extends DataStore {
             contentValues.put(COL_NAME_SYNC, (newTransaction.mIsSynced? 1:0));
             long result = db.insert(TABLE_NAME_TRANS, null, contentValues);
 
-            Log.d(TAG, "insert : " + result + " key=" + newTransaction.mDate);
+            if (true == Constants.DEBUG) Log.d(TAG, "insert : " + result + " key=" + newTransaction.mDate);
 
-            onSharedPreferenceChanged(String.valueOf(newTransaction.mDate));
+            onChanged(String.valueOf(newTransaction.mDate));
         }
 
-        public synchronized void bucketInsert(ArrayList<MyTransaction> list) {
+        public synchronized void bucketInsert(Collection<MyTransaction> list) {
             if (mIsClosed || null == list || 0 >= list.size()) {
                 return;
             }
@@ -194,16 +197,16 @@ public class SQLiteDataStore extends DataStore {
                             + (mt.mIsSynced? 1:0) + "'"
                             + ")";
                     db.execSQL(sql);
-                    Log.d(TAG, "insert : " + sql);
+                    if (true == Constants.DEBUG) Log.d(TAG, "insert : " + sql);
                 }
-                Log.d(TAG, "insert : ------");
+                if (true == Constants.DEBUG) Log.d(TAG, "insert : ------");
                 db.setTransactionSuccessful();
             }
             finally {
                 db.endTransaction();
             }
 
-            onSharedPreferenceChanged(null);
+            onChanged(null);
         }
 
         public synchronized ArrayList<MyTransaction> query(String selection, String[] selectionArgs) {

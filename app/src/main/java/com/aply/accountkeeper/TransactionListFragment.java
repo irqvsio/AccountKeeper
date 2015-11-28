@@ -1,6 +1,5 @@
 package com.aply.accountkeeper;
 
-import android.content.Context;
 import android.os.Bundle;
 import android.support.v4.app.FragmentActivity;
 import android.support.v4.app.ListFragment;
@@ -9,11 +8,9 @@ import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.AbsListView;
 import android.widget.AdapterView;
 
 import com.aply.accountkeeper.data.DataStore;
-import com.aply.accountkeeper.data.PreferenceDataStore;
 import com.aply.accountkeeper.data.MyTransaction;
 import com.aply.accountkeeper.data.TransactionListAdapter;
 
@@ -25,7 +22,7 @@ import com.aply.accountkeeper.data.TransactionListAdapter;
  * in option menu. It also can edit or delete one transaction in context menu
  * by long press the item in list view.
  */
-public class TransactionListFragment extends ListFragment implements PreferenceDataStore.Observer, AbsListView.OnScrollListener {
+public class TransactionListFragment extends ListFragment implements DataStore.Observer {
 
     private TransactionListAdapter mAdapter;
 
@@ -49,7 +46,6 @@ public class TransactionListFragment extends ListFragment implements PreferenceD
         super.onViewCreated(view, savedInstanceState);
         registerForContextMenu(getListView());
 
-        getListView().setOnScrollListener(this);
     }
 
     @Override
@@ -140,20 +136,5 @@ public class TransactionListFragment extends ListFragment implements PreferenceD
     @Override
     public void update(String key) {
         mAdapter.refresh(getActivity(), false);
-    }
-
-    @Override
-    public void onScrollStateChanged(AbsListView view, int scrollState) {
-//        if (SCROLL_STATE_IDLE == scrollState) {
-//            ((MainActivity) getActivity()).setFABVisibility(View.VISIBLE);
-//        }
-//        else {
-//            ((MainActivity) getActivity()).setFABVisibility(View.GONE);
-//        }
-    }
-
-    @Override
-    public void onScroll(AbsListView view, int firstVisibleItem, int visibleItemCount, int totalItemCount) {
-
     }
 }

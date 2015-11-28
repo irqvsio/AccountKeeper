@@ -7,6 +7,7 @@ import android.os.Looper;
 import android.os.Message;
 import android.util.Log;
 
+import com.aply.accountkeeper.Constants;
 import com.aply.accountkeeper.MainActivity;
 import com.bean_keeper.Proto.Transaction;
 import com.bean_keeper.Proto.AccountDelta;
@@ -18,6 +19,7 @@ import com.squareup.okhttp.Response;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.TreeMap;
 
 import okio.BufferedSource;
 
@@ -25,7 +27,6 @@ import okio.BufferedSource;
  * Data loader to load data from local storage and sync data from backend
  * server.
  */
-// TODO need another mechanism to sync data efficiently. Current sync algorithm is bad.
 public class TransactionExchanger extends HandlerThread {
     private static final String TAG = "TransactionExchanger";
 
@@ -33,18 +34,20 @@ public class TransactionExchanger extends HandlerThread {
      * When syncing with backend server or loading local data, we will notify
      * the status via this listener.
      */
-    // TODO add unique id to distinguish each sync task
     public interface OnSyncListener {
+        int TYPE_SYNC_BACKEND = 1;
+        int TYPE_SYNC_LOCAL = 2;
+
         /**
          * Called if sync fail for any reason.
          */
         void OnSyncError();
-
         /**
          * Called if sync successfully
+         * @param type the purpose of this sync task
          * @param newTransactionList the result of transaction list
          */
-        void OnSyncCompleted(ArrayList<MyTransaction> newTransactionList);
+        void OnSyncCompleted(int type, ArrayList<MyTransaction> newTransactionList);
     }
 
     public final MediaType APPLICATION_OCTET_STREAM = MediaType.parse("application/octet-stream");
@@ -55,13 +58,11 @@ public class TransactionExchanger extends HandlerThread {
 
     private Context mContext;
     private Handler mHandler;
-    //private AtomicInteger mSyncIdGenerter;
 
     public TransactionExchanger(Context cxt) {
         super(TAG);
         mContext = cxt;
         mHandler = null;
-        //mSyncIdGenerter = new AtomicInteger(1);
     }
 
     private void ensureLooperPrepared() {
@@ -83,17 +84,17 @@ public class TransactionExchanger extends HandlerThread {
     }
 
     private void syncLocalInternal(ArgumentObj arg) {
-//        final String guid = arg.guid;
         final OnSyncListener listener = arg.listener;
 
         if (null != listener) {
             DataStore dataStore = MainActivity.getDataStore(mContext);
-            // Get all transactions from DataStore
-            listener.OnSyncCompleted(filterDeleted(dataStore.query(null, null)));
+            // Get all un-deleted transactions from DataStore
+            ArrayList<MyTransaction> result = dataStore.query(DataStore.COL_NAME_DEL + "=?", new String[]{String.valueOf(0)});
+            if (Constants.DEBUG) dump(result);
+            listener.OnSyncCompleted(OnSyncListener.TYPE_SYNC_LOCAL, result);
         }
     }
 
-    // TODO should be more better design to sync data, rather than always search from list
     public void syncBackend(String guid, ArrayList<MyTransaction> list, OnSyncListener listener) {
         ensureLooperPrepared();
 
@@ -101,7 +102,6 @@ public class TransactionExchanger extends HandlerThread {
             list = new ArrayList<MyTransaction>();
         }
         ArgumentObj arg = new ArgumentObj();
-        //arg.id = mSyncIdGenerter.getAndIncrement();
         arg.guid = guid;
         arg.syncList = list;
         arg.listener = listener;
@@ -123,27 +123,25 @@ public class TransactionExchanger extends HandlerThread {
             syncList = arg.syncList;
         }
         else {
-            syncList = dataStore.query(null, null);
+            syncList = dataStore.query(DataStore.COL_NAME_SYNC + "=?", new String[]{String.valueOf(0)});
         }
 
-        // find all un-sync items
-        ArrayList<MyTransaction> remove = new ArrayList<MyTransaction>();
-        for (MyTransaction mt : syncList) {
-            if (null != mt && true == mt.mIsSynced) {
-                remove.add(mt);
-            }
-        }
-        syncList.removeAll(remove);
-
-        long lastSyncTime = dataStore.getSyncTime();
-        // find all un-sync items
+        // make sure all are un-sync items
+        TreeMap<Long, MyTransaction> updateTransMap = new TreeMap<Long, MyTransaction>();
         ArrayList<Transaction> list = new ArrayList<Transaction>();
         for (MyTransaction mt : syncList) {
-            if (null != mt) {
+            if (null == mt) continue;
+
+            if (false == mt.mIsSynced) {
+                mt.mIsSynced = true;
+                updateTransMap.put(mt.mDate, mt);
                 list.add(mt.Build());
             }
         }
-        Log.d(TAG, "last serverTimestamp " + lastSyncTime + " " + list.size());
+
+        long lastSyncTime = dataStore.getSyncTime();
+
+        if (true == Constants.DEBUG) Log.d(TAG, "last serverTimestamp " + lastSyncTime + " " + list.size());
         AccountDelta requestAccDelta = AccountDelta.newBuilder()
                 .setServerTimestamp(lastSyncTime)
                 .addAllAddedOrModified(list)
@@ -151,35 +149,6 @@ public class TransactionExchanger extends HandlerThread {
         byte[] bytes = requestAccDelta.toByteArray();
 
         RequestBody requestBody = RequestBody.create(APPLICATION_OCTET_STREAM, bytes);
-
-//        RequestBody requestBody = new RequestBody() {
-//            @Override
-//            public MediaType contentType() {
-//                return MEDIA_TYPE_MARKDOWN;
-//            }
-//
-//            @Override
-//            public void writeTo(BufferedSink sink) throws IOException {
-//
-//                long time = dataStore.getSyncTime();
-//
-//                // find all un-sync items
-//                ArrayList<Transaction> list = new ArrayList<Transaction>();
-//                for (MyTransaction mt : syncList) {
-//                    if (null != mt) {
-//                        list.add(mt.Build());
-//                    }
-//                }
-//                Log.d(TAG, "last serverTimestamp " + time + " " + list.size());
-//                AccountDelta requestAccDelta = new AccountDelta.Builder()
-//                        .serverTimestamp(time)
-//                        .addedOrModified(list)
-//                        .build();
-//
-//                ProtoWriter writer = new ProtoWriter(sink);
-//                AccountDelta.ADAPTER.encode().encode(writer, requestAccDelta);
-//            }
-//        };
 
         Response response = null;
         try {
@@ -192,7 +161,7 @@ public class TransactionExchanger extends HandlerThread {
             response = httpClient.newCall(request).execute();
         }
         catch (IOException e) {
-            Log.d(TAG, "Can't connect with backend");
+            if (true == Constants.DEBUG) Log.d(TAG, "Can't connect with backend");
             response = null;
         }
 
@@ -210,7 +179,7 @@ public class TransactionExchanger extends HandlerThread {
             source.close();
         }
         catch (IOException e) {
-            Log.d(TAG, "Can't sync from backend");
+            if (true == Constants.DEBUG) Log.d(TAG, "Can't sync from backend");
             responseAccDelta = null;
         }
 
@@ -224,11 +193,13 @@ public class TransactionExchanger extends HandlerThread {
         long time = responseAccDelta.getServerTimestamp();
 
         dataStore.setSyncTime(time);
-        Log.d(TAG, "new serverTimestamp " + time + ", list size=" + responseAccDelta.getAddedOrModifiedList().size());
+        if (true == Constants.DEBUG) Log.d(TAG, "new serverTimestamp " + time + ", list size=" + responseAccDelta.getAddedOrModifiedList().size());
 
-        ArrayList<MyTransaction> transList = new ArrayList<MyTransaction>();
+        TreeMap<Long, MyTransaction> insertTransMap = new TreeMap<Long, MyTransaction>();
+        StringBuilder selection = new StringBuilder();
+        ArrayList<String> selectionArgs = new ArrayList<String>();
         for (Transaction t : responseAccDelta.getAddedOrModifiedList()) {
-            if (null == t || null == t.getGuid()) {
+            if(null == t || null == t.getGuid()) {
                 continue;
             }
 
@@ -236,57 +207,57 @@ public class TransactionExchanger extends HandlerThread {
                 MyTransaction mt = new MyTransaction(t);
                 mt.mIsSynced = true;
 
-                // TODO need refiine the match algorithm
-                ArrayList<MyTransaction> dataList = dataStore.query(DataStore.COL_NAME_DATE + "=?", new String[]{String.valueOf(mt.mDate)});
-                if (null == dataList || 0 >= dataList.size()) {
-                    transList.add(mt);
+                if (true == updateTransMap.containsKey(mt.mDate)) {
+                    updateTransMap.put(mt.mDate, mt);
                 }
                 else {
-                    // TODO remove local data and sync to server data, but should improve the search algorithm
-                    MyTransaction r = null;
-                    for (MyTransaction old : syncList) {
-                        if (mt.mDate == old.mDate) {
-                            r = old;
-                        }
+                    insertTransMap.put(mt.mDate, mt);
+                    selectionArgs.add(String.valueOf(mt.mDate));
+                    if (0 >= selection.length()) {
+                        selection.append(DataStore.COL_NAME_DATE + "=?");
                     }
-                    if (null != r) {
-                        syncList.remove(r);
+                    else {
+                        selection.append(" OR " + DataStore.COL_NAME_DATE + "=?");
                     }
-                    syncList.add(mt);
                 }
             }
         }
 
-        // sync to DataStore
-        // 1. update syncList
-        for (MyTransaction mt : syncList) {
-            if (null != mt) {
-                mt.mIsSynced = true;
+        if (0 < selectionArgs.size()) {
+            ArrayList<MyTransaction> tmpList = dataStore.query(selection.toString(), selectionArgs.toArray(new String[1]));
+            for (MyTransaction mt: tmpList) {
+                if (true == insertTransMap.containsKey(mt.mDate)) {
+                    MyTransaction newMT = insertTransMap.remove(mt.mDate);
+                    updateTransMap.put(newMT.mDate, newMT);
+                }
             }
         }
-        dataStore.bucketUpdate(syncList);
 
-        // 2. new from transList
-        dataStore.bucketInsert(transList);
+        // disable notification temporarily due to we will sync all after modifying db
+        dataStore.setEnableDataChangeObserver(false);
+        dataStore.bucketUpdate(updateTransMap.values());
+        dataStore.bucketInsert(insertTransMap.values());
+        dataStore.setEnableDataChangeObserver(true);
 
         if (null != listener) {
-            // Get all transactions from DataStore
-            // and filter deleted items
-            listener.OnSyncCompleted(filterDeleted(dataStore.query(null, null)));
+            // Get all un-deleted transactions from DataStore
+            ArrayList<MyTransaction> result = dataStore.query(DataStore.COL_NAME_DEL + "=?", new String[]{String.valueOf(0)});
+            if (Constants.DEBUG) dump(result);
+            listener.OnSyncCompleted(OnSyncListener.TYPE_SYNC_BACKEND, result);
         }
     }
 
-    private ArrayList<MyTransaction> filterDeleted(ArrayList<MyTransaction> mtList) {
-        ArrayList<MyTransaction> removeList = new ArrayList<MyTransaction>();
+    private void dump(ArrayList<MyTransaction> mtList) {
+        if (false == Constants.DEBUG) return;
+
         for (MyTransaction mt : mtList) {
             if (true == mt.mDeleted) {
-                removeList.add(mt);
                 Log.d(TAG, "deleted " + mt.toString());
             }
+            else {
+                Log.d(TAG, "keep " + mt.toString());
+            }
         }
-        mtList.removeAll(removeList);
-
-        return mtList;
     }
 
     private class ArgumentObj {

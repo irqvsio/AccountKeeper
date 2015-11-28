@@ -4,7 +4,10 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
+import com.aply.accountkeeper.Constants;
+
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
@@ -12,8 +15,9 @@ import java.util.Map;
 
 /**
  * Local data provider. Currently, use SharedPreferences to store all
- * transaction data.
+ * transaction data. Please use {@code SQLiteDataStore}.
  */
+@Deprecated
 public class PreferenceDataStore extends DataStore {
     private static final String PREF_TRANSACTION = "trans.pref";
 
@@ -33,7 +37,7 @@ public class PreferenceDataStore extends DataStore {
         }
 
         String newKey = Long.toString(newTransaction.mDate);
-        if(true == mSharedPreferences.contains(newKey)) {
+        if(true == Constants.DEBUG && true == mSharedPreferences.contains(newKey)) {
             Log.d("TAG", "Can't insert duo to have the same date, " + newTransaction.mDate);
         }
 
@@ -51,10 +55,10 @@ public class PreferenceDataStore extends DataStore {
 
         editor.apply();
 
-        onSharedPreferenceChanged(newKey);
+        onChanged(newKey);
     }
 
-    public synchronized void bucketInsert(ArrayList<MyTransaction> list) {
+    public synchronized void bucketInsert(Collection<MyTransaction> list) {
         if (null == list) {
             return;
         }
@@ -65,7 +69,7 @@ public class PreferenceDataStore extends DataStore {
             }
 
             String newKey = Long.toString(mt.mDate);
-            if(true == mSharedPreferences.contains(newKey)) {
+            if(true == Constants.DEBUG && true == mSharedPreferences.contains(newKey)) {
                 Log.d("TAG", "Can't insert duo to have the same date, " + mt.mDate);
             }
 
@@ -73,7 +77,7 @@ public class PreferenceDataStore extends DataStore {
         }
         editor.apply();
 
-        onSharedPreferenceChanged(null);
+        onChanged(null);
     }
 
     public synchronized void update(MyTransaction updateTransaction) {
@@ -82,7 +86,7 @@ public class PreferenceDataStore extends DataStore {
         }
 
         String key = Long.toString(updateTransaction.mDate);
-        if(false == mSharedPreferences.contains(key)) {
+        if(true == Constants.DEBUG && false == mSharedPreferences.contains(key)) {
             Log.d("TAG", "Can't update, " + updateTransaction.toString());
         }
 
@@ -92,10 +96,10 @@ public class PreferenceDataStore extends DataStore {
 
         editor.apply();
 
-        onSharedPreferenceChanged(key);
+        onChanged(key);
     }
 
-    public synchronized void bucketUpdate(ArrayList<MyTransaction> list) {
+    public synchronized void bucketUpdate(Collection<MyTransaction> list) {
         if (null == list) {
             return;
         }
@@ -106,7 +110,7 @@ public class PreferenceDataStore extends DataStore {
             }
 
             String key = Long.toString(mt.mDate);
-            if(false == mSharedPreferences.contains(key)) {
+            if(true == Constants.DEBUG && false == mSharedPreferences.contains(key)) {
                 Log.d("TAG", "Can't update, " + mt.mDate);
             }
 
@@ -114,7 +118,7 @@ public class PreferenceDataStore extends DataStore {
         }
         editor.apply();
 
-        onSharedPreferenceChanged(null);
+        onChanged(null);
     }
 
     public synchronized ArrayList<MyTransaction> query(String selection, String[] selectionArgs) {

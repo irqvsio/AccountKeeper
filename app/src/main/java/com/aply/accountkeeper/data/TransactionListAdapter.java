@@ -74,7 +74,6 @@ public class TransactionListAdapter extends BaseAdapter implements TransactionEx
             mExchanger.syncBackend(MainActivity.GUID, null, this);
         }
         else {
-            // TODO should really get actual update items??? or more good way to refresh??
             mExchanger.syncLocal(MainActivity.GUID, this);
         }
 
@@ -112,7 +111,7 @@ public class TransactionListAdapter extends BaseAdapter implements TransactionEx
     }
 
     @Override
-    public void OnSyncCompleted(final ArrayList<MyTransaction> newTransactionList) {
+    public void OnSyncCompleted(int type, final ArrayList<MyTransaction> newTransactionList) {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
