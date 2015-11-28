@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">"AccountKeeper"</string>
+    <string name="action_sum">"Sum all"</string>
+    <string name="action_refresh">"Refresh"</string>
+
+    <string name="transaction_edit_title">""</string>
+    <string name="transaction_edit_title_new">"Add"</string>
+    <string name="transaction_edit_title_edit">"Edit"</string>
+    <string name="transaction_type">"Type:"</string>
+    <string name="transaction_values">"Values:"</string>
+    <string name="transaction_date">"Date:"</string>
+
+    <string name="edit_ok">"Okay"</string>
+    <string name="edit_cancel">"Cancel"</string>
+
+    <string name="menu_edit">"Edit"</string>
+    <string name="menu_delete">"Delete"</string>
+
+    <string name="edit_add_fail_error">"Can't create new Transaction."</string>
+    <string name="edit_update_fail_error">"Can't change this Transaction."</string>
+
+    <string name="detail_sum">"Sum: "</string>
+
+    <string name="process_progressing">"updating ..."</string>
+</resources>
